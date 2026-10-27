@@ -39,7 +39,7 @@ public class ReferenceData implements CommandLineRunner {
     var resource = new ClassPathResource("references/verified-sources.json");
     try (var stream = resource.getInputStream()) {
       var rows = mapper.readValue(stream, Reference[].class);
-      // Explicitly requested removal of generated history. Keep user-authored drafts.
+      // Remove legacy demo references while preserving drafts and invalidating stale reports.
       repository
         .findByHistoricalTrue()
         .stream()

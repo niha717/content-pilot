@@ -5,7 +5,13 @@ const checks=[];
 await mkdir('evidence', {recursive: true});
 async function req(path,options){const r=await fetch(base+path,options);if(!r.ok)throw new Error(path+': '+r.status+' '+await r.text());return r.json();}
 assert.equal((await req('/api/health')).status,'UP');checks.push('健康接口');
-const all=await req('/api/contents');const history=all.filter(c=>c.historical);
+// The HTTP listener can start before the transactional reference import commits.
+let history=[];
+for(let attempt=0;attempt<30;attempt++){
+  history=(await req('/api/contents')).filter(c=>c.historical);
+  if(history.length>=16)break;
+  await new Promise(resolve=>setTimeout(resolve,1000));
+}
 assert.equal(history.filter(c=>c.demo).length,0);
 assert.equal(history.filter(c=>c.source?.platform==='BILIBILI').length,6);
 assert.equal(history.filter(c=>c.source?.platform==='XIAOHONGSHU'&&c.status==='NEEDS_SOURCE').length,10);
