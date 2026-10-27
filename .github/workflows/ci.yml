@@ -22,6 +22,23 @@ jobs:
       - run: npm run format:check --prefix frontend
       - run: npm run build --prefix frontend
       - run: chmod +x gradlew && ./gradlew test bootJar --no-daemon
+      - name: Verify API workflow
+        env:
+          DATABASE_URL: jdbc:h2:mem:ci;DB_CLOSE_DELAY=-1
+        run: |
+          java -jar build/libs/content-pilot-0.1.0.jar > /tmp/content-pilot.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8080/api/health; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then cat /tmp/content-pilot.log; exit 1; fi
+          node scripts/smoke.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
