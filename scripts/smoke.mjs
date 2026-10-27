@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import {writeFile, mkdir} from 'node:fs/promises';
+const base=process.env.PILOT_URL||'http://127.0.0.1:8080';
+const checks=[];
+await mkdir('evidence', {recursive: true});
+async function req(path,options){const r=await fetch(base+path,options);if(!r.ok)throw new Error(path+': '+r.status+' '+await r.text());return r.json();}
+assert.equal((await req('/api/health')).status,'UP');checks.push('健康接口');
+const all=await req('/api/contents');const history=all.filter(c=>c.historical);
+assert.equal(history.filter(c=>c.demo).length,0);
+assert.equal(history.filter(c=>c.source?.platform==='BILIBILI').length,6);
+assert.equal(history.filter(c=>c.source?.platform==='XIAOHONGSHU'&&c.status==='NEEDS_SOURCE').length,10);
+checks.push('6条真实视频 + 10条待核验线索，0条演示历史');
+const reference=history.find(c=>c.source?.platform==='BILIBILI'&&c.source.sourceId==='BV1aFno6wETM');
+assert.ok(reference);
+const metadata={title:'[接口验证] '+reference.title,mediaType:'VIDEO',category:reference.category,audience:'',tags:'',body:reference.body,historical:false,impressions:0,clicks:0,engagements:0,completions:0};
+const form=new FormData();form.append('metadata',new Blob([JSON.stringify(metadata)],{type:'application/json'}));
+let c=await req('/api/contents',{method:'POST',body:form});
+await req(`/api/contents/${c.id}/analyze`,{method:'POST'});
+for(let n=0;n<30;n++){c=await req(`/api/contents/${c.id}`);if(['COMPLETED','FAILED'].includes(c.status))break;await new Promise(r=>setTimeout(r,700));}
+assert.equal(c.status,'COMPLETED');assert.ok(c.report.matches.length>0);
+assert.ok(c.report.matches.every(m=>m.source?.platform==='BILIBILI'));
+assert.ok(c.report.matches.every(m=>m.ctr===null&&m.impressions===null&&m.completionRate===null));
+checks.push('真实来源匹配与未知CTR空值处理');
+const post=data=>({method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+let r=await req(`/api/contents/${c.id}/feedback`,post({impressions:500,clicks:100,engagements:30,completions:60}));assert.equal(r.report.decision,'HOLD');
+r=await req(`/api/contents/${c.id}/feedback`,post({impressions:2000,clicks:200,engagements:50,completions:120}));assert.equal(r.report.decision,'EXPAND');
+r=await req(`/api/contents/${c.id}/feedback`,post({impressions:2000,clicks:200,engagements:50,completions:0}));assert.equal(r.report.decision,'PAUSE');
+const invalid=await fetch(base+`/api/contents/${c.id}/feedback`,post({impressions:10,clicks:11,engagements:0,completions:0}));assert.equal(invalid.status,400);
+checks.push('小样本保持、达标扩量、未达标暂停、不合法指标拒绝');
+const result={verifiedAt:new Date().toISOString(),base,checks,contentId:c.id,limitations:['真实模型密钥未配置，未测试LLM/ASR/视觉服务','小红书10条未取得正文及类型证据，不能宣称完成10篇热门图文采集']};
+await writeFile('evidence/smoke-result.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));

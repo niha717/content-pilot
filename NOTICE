@@ -1,0 +1,15 @@
+Content Pilot
+
+Design reference: InterviewGuide by Snailclimb
+https://github.com/Snailclimb/interview-guide
+The content operations application is independently implemented. The upstream
+project's own license applies to its code, which is not relicensed here.
+
+The Gradle Wrapper is distributed by Gradle under the Apache License 2.0.
+Existing copyright and license notices are retained in the wrapper scripts.
+Dependencies retain their respective licenses.
+
+Public video titles, description excerpts, author names and ranking metadata
+are attributed in src/main/resources/references/verified-sources.json.
+These third-party materials are not covered by the application MIT license.
+No ownership of the referenced media is claimed.

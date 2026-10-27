@@ -1,0 +1,25 @@
+plugins {
+  id 'java'
+  id 'org.springframework.boot' version '4.1.0'
+  id 'io.spring.dependency-management' version '1.1.7'
+}
+group = 'studio.contentpilot'
+version = '0.1.0'
+if (System.getenv('PILOT_BUILD_DIR')) { layout.buildDirectory = file(System.getenv('PILOT_BUILD_DIR')) }
+repositories { mavenCentral() }
+java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
+dependencies {
+  implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+  implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+  implementation 'org.springframework.boot:spring-boot-starter-validation'
+  implementation platform('org.springframework.ai:spring-ai-bom:2.0.0')
+  implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+  implementation 'com.fasterxml.jackson.core:jackson-databind:2.20.1'
+  runtimeOnly 'com.h2database:h2'
+  runtimeOnly 'org.postgresql:postgresql'
+  testImplementation 'org.springframework.boot:spring-boot-starter-test'
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.named('test') { useJUnitPlatform() }
+tasks.named('processResources') { from('frontend/dist') { into 'static' } }
